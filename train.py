@@ -25,8 +25,10 @@ import utils.misc as misc
 from utils.logger import get_logger
 from detectron2.layers import ROIAlign
 from utils.fss import DatasetFSS, DatasetCOCO, SemCOCO, SemADE
+from utils.lvis import DatasetLVIS
 from utils.fss_inst import InstCOCO, get_inst_aug
-
+from utils.paco_part import DatasetPACOPart
+from utils.pascal_part import DatasetPASCALPart
 from model.segic import build_model
 
 
@@ -142,8 +144,8 @@ def get_args_parser():
     parser.add_argument('--max_inst', type=int, default=5)
     parser.add_argument('--use_cross_inst_prompt', action='store_true')
     
-    parser.add_argument('--inst_datasets', nargs='+', default=['coco','lvis'])
-    parser.add_argument('--sem_datasets', nargs='+', default=['coco','ade20k'])
+    parser.add_argument('--inst_datasets', nargs='+', default=[])
+    parser.add_argument('--sem_datasets', nargs='+', default=[])
     parser.add_argument('--eval_sem_datasets', nargs='+', default=['ade'])
     parser.add_argument('--force_input_size', default=None, type=int)
     parser.add_argument('--use_task_indicator', action='store_true')
@@ -180,8 +182,9 @@ def main(args):
 
     if torch.cuda.is_available():
         model.cuda()
+    args.gpu = 0
     model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu], find_unused_parameters=args.find_unused_params)
-    custom_sam_without_ddp = model.module
+    custom_sam_without_ddp = model.module #model
 
     ### --- Step 1: Train or Valid dataset ---
     args.eval = args.eval or args.eval_vos or args.eval_semseg or args.custom_eval
@@ -192,19 +195,32 @@ def main(args):
         if args.use_dual_aug:
             aug_list = [DualAug(aug_list+[DefaultBundle()])]
 
-        train_dataset_sem = DatasetCOCO('data', None, transforms.Compose(aug_list), 'trn', 1, False)
-        train_dataset = train_dataset_sem
+        # train_dataset_sem = DatasetCOCO('data', None, transforms.Compose(aug_list), 'trn', 1, False)
+        # train_dataset = train_dataset_sem
         if args.use_inst_train :
             dataset_list = []
             for name in args.sem_datasets :
                 print('sem name', name)
                 if name == 'coco':
+                    train_dataset_sem = DatasetCOCO('data', None, transforms.Compose(aug_list), 'trn', 1, False)
                     dataset_list.append(train_dataset_sem)
                 elif name.startswith('coco'):
                     name, fold = name.split('_')
                     assert name == 'coco'
                     fold = int(fold)
                     dataset_list.append(DatasetCOCO('data', fold, transforms.Compose(aug_list), 'trn', 1, False))
+                elif name.startswith('lvis'):
+                    name, fold = name.split('_')
+                    fold = int(fold)
+                    dataset_list.append(DatasetLVIS('data', fold, transforms.Compose(aug_list), 'trn', 1, False))
+                elif name.startswith('paco_part'):
+                    fold = name.split('_')[-1]
+                    fold = int(fold)
+                    dataset_list.append(DatasetPACOPart('data', fold, transforms.Compose(aug_list), 'trn', 1, False))
+                elif name.startswith('pascal_part'):
+                    fold = name.split('_')[-1]
+                    fold = int(fold)
+                    dataset_list.append(DatasetPASCALPart('data', fold, transforms.Compose(aug_list), 'trn', 1, False))
                 elif name == 'fss':
                     dataset_list.append(DatasetFSS('data', None, transforms.Compose(aug_list), 'trn', 1, False))
                 elif name == 'ade20k':
@@ -223,7 +239,7 @@ def main(args):
                 elif name == 'coco':
                     dataset_list.append(InstCOCO('data/coco', aug_inst, dataset_name='coco'))
                 elif name == 'lvis':
-                    dataset_list.append(InstCOCO('data/lvis', aug_inst, dataset_name='lvis'))
+                    dataset_list.append(InstCOCO('data/LVIS', aug_inst, dataset_name='lvis'))
                 elif name == 'paco_lvis':
                     dataset_list.append(InstCOCO('data/paco', aug_inst, dataset_name='paco_lvis'))
                 elif name == 'lip':
@@ -252,8 +268,6 @@ def main(args):
                             )]
     else :
         aug_list_eval = [Resize(args.input_size)]
-
-
 
     logger.info("--- create valid dataloader ---")
     if args.eval_vos :
@@ -286,8 +300,8 @@ def main(args):
         for name in args.eval_sem_datasets:
             if name == 'ade20k':
                 dataset = SemADE('data/ade20k', aug_eval, False, is_semseg=True)
-                # dataset_meta = SemADE('data/ade20k', aug_eval, True, is_semseg=True, is_meta=True)
-                dataset_meta = SemADE('sd_gen/ade20k_val', aug_eval, False, is_semseg=True, dataset_name='sd_ade20k', ext='tif', is_meta=True)
+                dataset_meta = SemADE('data/ade20k', aug_eval, True, is_semseg=True, is_meta=True)
+                #dataset_meta = SemADE('sd_gen/ade20k_val', aug_eval, False, is_semseg=True, dataset_name='sd_ade20k', ext='tif', is_meta=True)
             elif name == 'coco':
                 dataset = SemCOCO('data/coco', aug_eval, False, is_semseg=True)
                 dataset_meta = SemCOCO('data/coco', aug_eval, is_train=True, custom_json_path='annotations/instances_train2017_fss.json', is_semseg=False, is_meta=True)
@@ -302,13 +316,13 @@ def main(args):
             else:
                 raise NotImplementedError
             valid_datasets.append(dataset)
-            sampler = DistributedSampler(dataset_meta, shuffle=False)
-            valid_datasets_meta_loader.append(DataLoader(dataset_meta, 8, sampler=sampler, drop_last=False, num_workers=4,
+            #sampler = DistributedSampler(dataset_meta, shuffle=False) sampler=sampler, 
+            valid_datasets_meta_loader.append(DataLoader(dataset_meta, 8, drop_last=False, num_workers=4,
                                                     collate_fn=custom_collate_fn))
 
         for valid_dataset in valid_datasets :
-            sampler = DistributedSampler(valid_dataset, shuffle=False)
-            valid_dataloaders.append(DataLoader(valid_dataset, args.batch_size_valid, sampler=sampler, drop_last=False, num_workers=4,
+            # sampler = DistributedSampler(valid_dataset, shuffle=False) sampler=sampler,
+            valid_dataloaders.append(DataLoader(valid_dataset, args.batch_size_valid, drop_last=False, num_workers=4,
                                                 collate_fn=custom_collate_fn))
 
     else :
@@ -317,13 +331,25 @@ def main(args):
         aug_eval = transforms.Compose(aug_list_eval)
         valid_datasets = []
         
-        if args.eval_datasets == 'lvis':
-            valid_datasets = [SemCOCO('data/lvis', aug_eval, False, is_semseg=True, is_lvis=True, fold=idx) for idx in range(10)]
+        if args.eval_datasets.startswith('lvis'):
+            fold = int(args.eval_datasets.split('_')[-1])
+            valid_datasets = [DatasetLVIS('data', fold, transforms.Compose(aug_list), 'val', 1, False)]
         # TODO: custom datasets, coco format
-        elif args.eval_datasets == 'coco':
-            valid_datasets = [SemCOCO('data/coco', aug_eval, False, is_semseg=True, is_lvis=False)]
+        elif args.eval_datasets.startswith('coco'):
+            fold = int(args.eval_datasets.split('_')[-1])
+            valid_datasets = [DatasetCOCO('data', fold, aug_eval, 'test', 1, False)]
+
         elif args.eval_datasets == 'fss':
             valid_datasets = [(DatasetFSS('data', None, aug_eval, 'test', 1, False))]
+        elif name.startswith('paco_part'):
+            fold = name.split('_')[-1]
+            fold = int(fold)
+            valid_datasets = [DatasetPACOPart('data', fold, aug_eval, 'test', 1, False)]
+        elif name.startswith('pascal_part'):
+            fold = name.split('_')[-1]
+            fold = int(fold)
+            valid_datasets = [DatasetPASCALPart('data', fold, aug_eval, 'test', 1, False)]
+
         elif args.eval_datasets is None :
             valid_datasets = [DatasetCOCO('data', idx, aug_eval, 'test', 1, False) for idx in range(4)]
             valid_datasets.append(DatasetFSS('data', None, aug_eval, 'test', 1, False))
@@ -400,7 +426,7 @@ def train(args, model, optimizer, train_dataloaders, valid_dataloaders, lr_sched
         train_dataloaders.batch_sampler.sampler.set_epoch(epoch)
 
         len_loader = len(train_dataloaders)
-        for data in metric_logger.log_every(train_dataloaders,20,logger=logger):
+        for data in metric_logger.log_every(train_dataloaders,100,logger=logger):
             masks_hq, bbox_preds, loss, loss_dict = model(data)
             # reduce losses over all GPUs for logging purposes
             loss_dict_reduced = misc.reduce_dict(loss_dict)
@@ -535,31 +561,7 @@ def evaluate(args, model, valid_dataloaders, visualize=False):
 
             inter, union = compute_iou(masks_hq,labels_ori, True)
             eval_meter.update(inter.cuda(), union.cuda(), data_val['class_id'][0].cuda(), loss=None)
-
-            if visualize:
-                os.makedirs(args.output, exist_ok=True)
-                masks_hq_vis = (F.interpolate(masks_hq.detach(), (1024, 1024), mode="bilinear", align_corners=False) > 0).cpu()
-                imgs_aug = inputs_dual.permute(0, 2, 3, 1).cpu().numpy()
-                labels_aug = (F.interpolate(labels_dual.detach(), (1024, 1024), mode="bilinear", align_corners=False) > 0).cpu()
-
-                labels_box_aug = misc.masks_to_boxes(labels_dual[:,0,:,:])
-                # labels_box_aug = misc.masks_to_boxes(labels_aug[:,0,:,:])
-                for ii in range(len(imgs)):
-                    base = data_val['imidx'][ii].item()
-                    logger.info('base:'.format(base))
-                    save_base = os.path.join(args.output, str(k)+'_'+ str(base))
-                    imgs_ii = imgs[ii].astype(dtype=np.uint8)
-                    imgs_ii_aug = imgs_aug[ii].astype(dtype=np.uint8)
-                    show_iou = torch.tensor([iou.item()])
-                    show_boundary_iou = torch.tensor([boundary_iou.item()])
-                    show_anns(masks_hq_vis[ii], None, bbox_preds_xyxy_show[ii].cpu(), None, save_base , imgs_ii, show_iou, show_boundary_iou)
-                    show_anns(labels_aug[ii], None, labels_box_aug[ii].cpu(), None, save_base+'_aug' , imgs_ii_aug, show_iou, show_boundary_iou)
-                    if 1 :
-                        aa = cv2.imread('{}_0.png'.format(save_base))
-                        bb = cv2.imread('{}_aug_0.png'.format(save_base))
-                        cv2.imwrite('{}_0_combine.png'.format(save_base), np.concatenate([aa,bb], axis=1))
                        
-
             loss_dict = {"val_iou_"+str(k): iou, "val_boundary_iou_"+str(k): boundary_iou}
             loss_dict_reduced = misc.reduce_dict(loss_dict)
             metric_logger.update(**loss_dict_reduced)
@@ -592,7 +594,11 @@ def evaluate_semseg(args, model, valid_dataloaders, valid_datasets_meta_loader):
             meta_data_dict = {}
             prompt_feats_list, inst_feats_list, cls_ids_list = [], [], []
             for data_val_meta in tqdm(valid_datasets_meta_loader[k]):
-                prompt_feats, inst_feats = model.module.forward_cls_extraction(data_val_meta, 16)
+                if hasattr(model, 'module'):
+                    prompt_feats, inst_feats = model.module.forward_cls_extraction(data_val_meta, 16)
+                else:
+                    prompt_feats, inst_feats = model.forward_cls_extraction(data_val_meta, 16)
+                    
                 cls_ids = data_val_meta['class_id']
                 for i, cls_id in enumerate(cls_ids.tolist()):
                     meta_data_dict[cls_id] = prompt_feats[i], inst_feats[i], data_val_meta['imidx'][i][None]

@@ -7,6 +7,7 @@ import torch.nn.functional as F
 import torch
 import PIL.Image as Image
 import numpy as np
+from os.path import join
 
 
 r""" COCO-20i few-shot semantic segmentation dataset """
@@ -177,8 +178,11 @@ class SemADE(Dataset):
         def to_tensor(x):
             return torch.tensor(np.array(x), dtype=torch.float32).permute(2,0,1)
         image = to_tensor(image)
-        masks = torch.tensor(masks).float()
-
+        try:
+            masks = torch.tensor(masks).float()
+        except:
+            masks = torch.tensor(masks.astype(float)).float()
+        
         if ret_uni_cids :
             return image, masks, cats_list, uni_cids
         return image, masks, cats_list
@@ -550,7 +554,7 @@ class DatasetCOCO(Dataset):
 
     def build_img_metadata_classwise(self):
         if self.fold is not None :
-            with open('./data/splits/coco/%s/fold%d.pkl' % (self.split, self.fold), 'rb') as f:
+            with open(join(self.base_path, f'splits/{self.split}/fold{self.fold}.pkl'), 'rb') as f:
                 img_metadata_classwise = pickle.load(f)
         else :
             assert self.split == 'trn'
@@ -566,7 +570,7 @@ class DatasetCOCO(Dataset):
         return sorted(list(set(img_metadata)))
 
     def read_mask(self, name):
-        mask_path = os.path.join(self.base_path, 'annotations', name)
+        mask_path = join(self.base_path, 'annotations', name)
         mask = torch.tensor(np.array(Image.open(mask_path[:mask_path.index('.jpg')] + '.png')))
         return mask
 

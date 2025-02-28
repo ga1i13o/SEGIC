@@ -12,6 +12,7 @@ from pycocotools.coco import COCO
 from torchvision.transforms import Compose
 from utils.dataloader import DualAug, LargeScaleJitter, DefaultBundle
 from utils.inst_aug import ColorJitter, RandomResizedCrop, RandomApply,RandomHorizontalFlip, Norm, DeNorm
+from os.path import join
 
 
 class InstCOCO(Dataset):
@@ -27,7 +28,7 @@ class InstCOCO(Dataset):
             split = 'train2017' if is_train else 'val2017'
             split_json = 'train' if is_train else 'val'
             json_path = 'lvis_v1_{}.json'.format(split_json)
-            self.img_root = base_image_dir
+            self.img_root = join(base_image_dir, 'coco')
         elif dataset_name == 'coco' :
             split = 'train2017' if is_train else 'val2017'
             json_path = 'annotations/instances_{}.json'.format(split)
