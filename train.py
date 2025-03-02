@@ -197,9 +197,10 @@ def main(args):
 
         # train_dataset_sem = DatasetCOCO('data', None, transforms.Compose(aug_list), 'trn', 1, False)
         # train_dataset = train_dataset_sem
+        print(args.sem_datasets)
         if args.use_inst_train :
             dataset_list = []
-            for name in args.sem_datasets :
+            for name in args.sem_datasets:
                 print('sem name', name)
                 if name == 'coco':
                     train_dataset_sem = DatasetCOCO('data', None, transforms.Compose(aug_list), 'trn', 1, False)
@@ -221,7 +222,7 @@ def main(args):
                     fold = name.split('_')[-1]
                     fold = int(fold)
                     dataset_list.append(DatasetPASCALPart('data', fold, transforms.Compose(aug_list), 'trn', 1, False))
-                elif name == 'fss':
+                elif name == 'fss_0':
                     dataset_list.append(DatasetFSS('data', None, transforms.Compose(aug_list), 'trn', 1, False))
                 elif name == 'ade20k':
                     dataset_list.append(SemADE('data/ade20k', transforms.Compose(aug_list)))
@@ -253,12 +254,10 @@ def main(args):
                 assert len(dataset_ratio) == len(dataset_list)
             train_dataset  = CustomConcatDataset(dataset_list, dataset_ratio, samples_per_epoch=args.samples_per_epoch)
         sampler = DistributedSampler(train_dataset, shuffle=True)
-
         batch_sampler_train = torch.utils.data.BatchSampler(
             sampler, args.batch_size_train, drop_last=True)
-        train_dataloaders = DataLoader(train_dataset, batch_sampler=batch_sampler_train, num_workers=4,
+        train_dataloaders = DataLoader(train_dataset, batch_sampler=batch_sampler_train, num_workers=7,
                                         collate_fn=custom_collate_fn)
-
         logger.info("{} train dataloaders created".format(len(train_dataloaders)))
 
     if args.use_dual_aug :
@@ -339,13 +338,13 @@ def main(args):
             fold = int(args.eval_datasets.split('_')[-1])
             valid_datasets = [DatasetCOCO('data', fold, aug_eval, 'test', 1, False)]
 
-        elif args.eval_datasets == 'fss':
+        elif args.eval_datasets == 'fss_0':
             valid_datasets = [(DatasetFSS('data', None, aug_eval, 'test', 1, False))]
-        elif name.startswith('paco_part'):
+        elif args.eval_datasets.startswith('paco_part'):
             fold = name.split('_')[-1]
             fold = int(fold)
             valid_datasets = [DatasetPACOPart('data', fold, aug_eval, 'test', 1, False)]
-        elif name.startswith('pascal_part'):
+        elif args.eval_datasets.startswith('pascal_part'):
             fold = name.split('_')[-1]
             fold = int(fold)
             valid_datasets = [DatasetPASCALPart('data', fold, aug_eval, 'test', 1, False)]

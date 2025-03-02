@@ -11,10 +11,14 @@ class CustomDINOv2(nn.Module):
         super().__init__()
         assert dinov2_model in ('b', 'l', 'g')
         # import pdb; pdb.set_trace()
+        # dino_path = '/leonardo_work/IscrB_LarGEO/gtrivigno/SEGIC/dino.pth'
+        # import os
+        # if not os.path.isfile(dino_path):
         if dinov2_model == 'b':
             self.dinov2 = torch.hub.load('facebookresearch/dinov2', 'dinov2_vitb14')
         elif dinov2_model == 'l':
-            self.dinov2 = torch.hub.load('facebookresearch/dinov2', 'dinov2_vitl14')
+            #self.dinov2 = torch.hub.load('facebookresearch/dinov2', 'dinov2_vitl14')
+            self.dinov2 = torch.hub.load('/leonardo/home/userexternal/gtrivign/.cache/torch/hub/facebookresearch_dinov2_main', model='dinov2_vitl14', source='local')
         elif dinov2_model == 'g':
             self.dinov2 = torch.hub.load('facebookresearch/dinov2', 'dinov2_vitg14')
         elif dinov2_model == 'b_reg':
@@ -23,10 +27,12 @@ class CustomDINOv2(nn.Module):
             self.dinov2 = torch.hub.load('facebookresearch/dinov2', 'dinov2_vitl14_reg')
         elif dinov2_model == 'g_reg':
             self.dinov2 = torch.hub.load('facebookresearch/dinov2', 'dinov2_vitg14_reg')
-
-        else :
-            raise NotImplementedError
-
+            # torch.save(self.dinov2, dino_path)
+        # else:
+        #     self.dinov2 = torch.load(dino_path)            
+        # else :
+        #     raise NotImplementedError
+        
         self.text_model = CLIPTextModel.from_pretrained('openai/clip-vit-large-patch14')
         self.tokenizer = AutoTokenizer.from_pretrained('openai/clip-vit-large-patch14')
 

@@ -614,7 +614,7 @@ class DatasetFSS(Dataset):
 
         # Given predefined test split, load randomly generated training/val splits:
         # (reference regarding trn/val/test splits: https://github.com/HKUSTCV/FSS-1000/issues/7))
-        with open('./data/splits/fss/%s.txt' % split, 'r') as f:
+        with open('./data/FSS-1000/splits/fss/%s.txt' % split, 'r') as f:
             self.categories = f.read().split('\n')[:-1]
         self.categories = sorted(self.categories)
 

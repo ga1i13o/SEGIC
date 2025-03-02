@@ -3,3 +3,8 @@ OUTPUT
 data
 test_stuff
 .vscode
+segic_*
+out_files*
+jobs*
+*pth
+cl_launcher*
