@@ -614,13 +614,11 @@ class DatasetFSS(Dataset):
 
         # Given predefined test split, load randomly generated training/val splits:
         # (reference regarding trn/val/test splits: https://github.com/HKUSTCV/FSS-1000/issues/7))
-        with open('./data/FSS-1000/splits/fss/%s.txt' % split, 'r') as f:
+        with open(f'./data/FSS-1000/splits/{split}.txt', 'r') as f:
             self.categories = f.read().split('\n')[:-1]
         self.categories = sorted(self.categories)
-
         self.class_ids = self.build_class_ids()
         self.img_metadata = self.build_img_metadata()
-
         self.transform = transform
 
     def __len__(self):
@@ -715,7 +713,9 @@ class DatasetFSS(Dataset):
     def build_img_metadata(self):
         img_metadata = []
         for cat in self.categories:
-            img_paths = sorted([path for path in glob.glob('%s/*' % os.path.join(self.base_path, cat))])
+            #print(os.path.join(self.base_path, cat, '*.jpg'))
+            img_paths = sorted(glob.glob(os.path.join(self.base_path, 'data', cat, '*.jpg')))
+            #img_paths = sorted([path for path in glob.glob('%s/*' % os.path.join(self.base_path, cat))])
             for img_path in img_paths:
                 if os.path.basename(img_path).split('.')[1] == 'jpg':
                     img_metadata.append(img_path)
