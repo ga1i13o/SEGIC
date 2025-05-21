@@ -5,3 +5,8 @@ test_stuff
 .vscode
 test
 *pth
+segic_*
+out_files*
+jobs*
+*pth
+cl_launcher*

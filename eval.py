@@ -29,6 +29,7 @@ from utils.lvis import DatasetLVIS
 from utils.fss_inst import InstCOCO, get_inst_aug
 from utils.paco_part import DatasetPACOPart
 from utils.pascal_part import DatasetPASCALPart
+from utils.pascal_voc_cd import DatasetPASCALCD
 from model.segic import build_model
 
 
@@ -170,7 +171,10 @@ def main(args):
     elif args.eval_datasets.startswith('coco'):
         fold = int(args.eval_datasets.split('_')[-1])
         valid_datasets = [DatasetCOCO('data', fold, aug_eval, 'test', 1, False)]
-    elif args.eval_datasets == 'fss':
+    elif args.eval_datasets.startswith('pascalcd'):
+        fold = int(args.eval_datasets.split('_')[-1])
+        valid_datasets = [DatasetPASCALCD('data', fold, aug_eval, 'test', 1)]
+    elif args.eval_datasets.startswith('fss'):
         valid_datasets = [(DatasetFSS('data', None, aug_eval, 'test', 1, False))]
     elif args.eval_datasets.startswith('paco_part'):
         fold = args.eval_datasets.split('_')[-1]
