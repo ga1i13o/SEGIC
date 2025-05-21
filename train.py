@@ -28,6 +28,7 @@ from utils.fss import DatasetFSS, DatasetCOCO, SemCOCO, SemADE
 from utils.lvis import DatasetLVIS
 from utils.fss_inst import InstCOCO, get_inst_aug
 from utils.paco_part import DatasetPACOPart
+from utils.pascal_voc import DatasetPASCAL
 from utils.pascal_part import DatasetPASCALPart
 from model.segic import build_model
 
@@ -210,6 +211,11 @@ def main(args):
                     assert name == 'coco'
                     fold = int(fold)
                     dataset_list.append(DatasetCOCO('data', fold, transforms.Compose(aug_list), 'trn', 1, False))
+                elif name.startswith('pascalvoc'):
+                    name, fold = name.split('_')
+                    assert name == 'pascalvoc'
+                    fold = int(fold)
+                    dataset_list.append(DatasetPASCAL('data', fold, transforms.Compose(aug_list), 'trn', 1, False))
                 elif name.startswith('lvis'):
                     name, fold = name.split('_')
                     fold = int(fold)
@@ -348,7 +354,9 @@ def main(args):
             fold = name.split('_')[-1]
             fold = int(fold)
             valid_datasets = [DatasetPASCALPart('data', fold, aug_eval, 'test', 1, False)]
-
+        elif args.eval_datasets.startswith('pascalvoc'):
+            fold = int(args.eval_datasets.split('_')[-1])
+            valid_datasets = [DatasetPASCAL('data', fold, aug_eval, 'test', 1, False)]
         elif args.eval_datasets is None :
             valid_datasets = [DatasetCOCO('data', idx, aug_eval, 'test', 1, False) for idx in range(4)]
             valid_datasets.append(DatasetFSS('data', None, aug_eval, 'test', 1, False))
@@ -418,7 +426,6 @@ def train(args, model, optimizer, train_dataloaders, valid_dataloaders, lr_sched
     train_num = len(train_dataloaders)
 
     model.train()
-
     for epoch in range(epoch_start,epoch_num): 
         logger.info("epoch: {},  learning rate: {}".format(epoch, optimizer.param_groups[0]["lr"]))
         metric_logger = misc.MetricLogger(delimiter="  ")

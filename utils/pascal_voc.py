@@ -10,8 +10,8 @@ from torchvision import transforms
 from os.path import join
 
 
-class DatasetPASCALCD(Dataset):
-    def __init__(self, datapath, fold, transform, split, shot):
+class DatasetPASCAL(Dataset):
+    def __init__(self, datapath, fold, transform, split, shot, use_original_imgsize):
         self.split = 'val' if split in ['val', 'test'] else 'trn'
         self.fold = fold
         self.nfolds = 4
@@ -24,8 +24,6 @@ class DatasetPASCALCD(Dataset):
         self.ann_path = join(self.base_path, 'SegmentationClassAug')
         self.transform = transform
 
-        self.fold_classes = torch.load(join(self.base_path, 'cd_folds.pth'))
-        self.class_names = torch.load(join(self.base_path, 'class_names.pth'))
         self.class_ids = self.build_class_ids()
         self.img_metadata = self.build_img_metadata()
         self.img_metadata_classwise = self.build_img_metadata_classwise()
@@ -39,8 +37,6 @@ class DatasetPASCALCD(Dataset):
         query_name, support_names, class_sample = self.sample_episode(idx)
         query_img, query_cmask, support_imgs, support_cmasks, org_qry_imsize = self.load_frame(query_name, support_names)
 
-        # query_img = self.transform(query_img)
-        #query_cmask = F.interpolate(query_cmask.unsqueeze(0).unsqueeze(0).float(), query_img.size[::-1], mode='nearest').squeeze()
         query_mask, query_ignore_idx = self.extract_ignore_idx(query_cmask.float(), class_sample)
         # support_imgs = torch.stack([self.transform(support_img) for support_img in support_imgs])
         support_masks = []
@@ -49,10 +45,6 @@ class DatasetPASCALCD(Dataset):
             #scmask = F.interpolate(scmask.unsqueeze(0).unsqueeze(0).float(), support_imgs[i].size[::-1], mode='nearest').squeeze()
             support_mask, support_ignore_idx = self.extract_ignore_idx(scmask, class_sample)
             support_masks.append(support_mask)
-            #support_ignore_idxs.append(support_ignore_idx)
-        # support_masks = torch.stack(support_masks)
-        # support_ignore_idxs = torch.stack(support_ignore_idxs)
-
         def to_tensor(x):
             return torch.tensor(np.array(x), dtype=torch.float32).permute(2,0,1)
         assert len(support_imgs) == 1 and len(support_cmasks) == 1
@@ -119,9 +111,12 @@ class DatasetPASCALCD(Dataset):
 
     def build_class_ids(self):
         nclass_trn = self.nclass // self.nfolds
-        class_ids_val = [x-1 for x in self.fold_classes[self.fold]]        
-        #class_ids_val = [self.fold * nclass_trn + i for i in range(nclass_trn)]
-        class_ids_trn = [x for x in range(self.nclass) if x not in class_ids_val]
+        if self.fold != 4:
+            class_ids_val = [self.fold * nclass_trn + i for i in range(nclass_trn)]
+            class_ids_trn = [x for x in range(self.nclass) if x not in class_ids_val]
+        else:
+            class_ids_val = [0 + self.nfolds * v for v in range(nclass_trn)]
+            class_ids_trn = list(range(self.nclass))
 
         if self.split == 'trn':
             return class_ids_trn
@@ -134,7 +129,7 @@ class DatasetPASCALCD(Dataset):
             fold_n_metadata = join(self.base_path, f'splits/{split}/fold{fold_id}.txt')
             with open(fold_n_metadata, 'r') as f:
                 fold_n_metadata = f.read().split('\n')[:-1]
-            fold_n_metadata = [[data.split('__')[0], int(data.split('__')[1]) - 1] for data in fold_n_metadata if int(data.split('__')[1]) in self.fold_classes[self.fold]]
+            fold_n_metadata = [[data.split('__')[0], int(data.split('__')[1]) - 1] for data in fold_n_metadata]
             return fold_n_metadata
 
         img_metadata = []
@@ -145,8 +140,11 @@ class DatasetPASCALCD(Dataset):
                 img_metadata += read_metadata(self.split, fold_id)
 
         elif self.split == 'val':  # For validation, read image-metadata of "current" fold
-            for fold_id in range(self.nfolds):
-                img_metadata += read_metadata(self.split, fold_id)
+            if self.fold != 4:
+                img_metadata = read_metadata(self.split, self.fold)
+            else:
+                img_metadata = read_metadata(self.split, 0)
+
         else:
             raise Exception('Undefined split %s: ' % self.split)
 
@@ -171,7 +169,7 @@ def build(image_set, args):
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
-    dataset = DatasetPASCALCD(datapath=args.data_root, fold=args.fold, transform=transform,
+    dataset = DatasetPASCAL(datapath=args.data_root, fold=args.fold, transform=transform,
                  shot=args.shots, split=image_set)
 
     return dataset
