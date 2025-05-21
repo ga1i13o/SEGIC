@@ -17,8 +17,11 @@ class CustomDINOv2(nn.Module):
         if dinov2_model == 'b':
             self.dinov2 = torch.hub.load('facebookresearch/dinov2', 'dinov2_vitb14')
         elif dinov2_model == 'l':
-            #self.dinov2 = torch.hub.load('facebookresearch/dinov2', 'dinov2_vitl14')
-            self.dinov2 = torch.hub.load('/leonardo/home/userexternal/gtrivign/.cache/torch/hub/facebookresearch_dinov2_main', model='dinov2_vitl14', source='local')
+            import socket
+            if 'leonardo.local' in socket.gethostname():
+                self.dinov2 = torch.hub.load('/leonardo/home/userexternal/gtrivign/.cache/torch/hub/facebookresearch_dinov2_main', model='dinov2_vitl14', source='local')
+            else:
+                self.dinov2 = torch.hub.load('facebookresearch/dinov2', 'dinov2_vitl14')
         elif dinov2_model == 'g':
             self.dinov2 = torch.hub.load('facebookresearch/dinov2', 'dinov2_vitg14')
         elif dinov2_model == 'b_reg':
