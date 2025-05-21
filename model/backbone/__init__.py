@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from typing import List, Tuple, Type
-from .src_dift.models.dift_sd import SDFeaturizer
+#from .src_dift.models.dift_sd import SDFeaturizer
 from .custom_clip import CustomCLIPVisionModel, CLIPModel, CLIPModelConv, DeCLIPModel
 from .custom_dino import CustomMAE, CustomConvNext, CustomDINOv1, CustomEncoder, CustomDINOv2
 from .custom_deit import CustomDeiT
@@ -159,21 +159,21 @@ class CustomPromptEncoder(PromptEncoder):
 
 def build_encoder(args):
     prompt_embed_dim = 256
-    if args.encoder_model == 'dift':
-        encoder = SDFeaturizer('stabilityai/stable-diffusion-2-1')
-        embed_dim = 1280
-        image_size = 1024
-        downscale_stride = 16
-        image_embedding_size = image_size // downscale_stride
-        prompt_encoder = CustomPromptEncoder(
-                    embed_dim=prompt_embed_dim,
-                    image_embedding_size=(image_embedding_size, image_embedding_size),
-                    input_image_size=(image_size, image_size),
-                    mask_in_chans=16,
-                    # num_keypoint= 1 if not args.use_keypoint else 2 * num_keypoint + 1,
-                    mask_down_stride=[8,2]
-                )
-    elif args.encoder_model == 'clip' :
+    # if args.encoder_model == 'dift':
+    #     encoder = SDFeaturizer('stabilityai/stable-diffusion-2-1')
+    #     embed_dim = 1280
+    #     image_size = 1024
+    #     downscale_stride = 16
+    #     image_embedding_size = image_size // downscale_stride
+    #     prompt_encoder = CustomPromptEncoder(
+    #                 embed_dim=prompt_embed_dim,
+    #                 image_embedding_size=(image_embedding_size, image_embedding_size),
+    #                 input_image_size=(image_size, image_size),
+    #                 mask_in_chans=16,
+    #                 # num_keypoint= 1 if not args.use_keypoint else 2 * num_keypoint + 1,
+    #                 mask_down_stride=[8,2]
+    #             )
+    if args.encoder_model == 'clip' :
         embed_dim = 1024
         image_size = 14* 64
         downscale_stride = 14
